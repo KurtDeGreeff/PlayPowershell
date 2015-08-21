@@ -14,6 +14,6 @@ Restart-Service Workstation -force
 write-host -ForegroundColor blue -BackgroundColor white "Joining domain $dom..."
  
 #if join succeeds, restart computer
- if (JoinDomain ctislp_dom admin ctislp) {Write-host -ForegroundColor blue -BackgroundColor white "Successfully joined $dom domain!"}
+ if (JoinDomain <domain> admin <password>) {Write-host -ForegroundColor blue -BackgroundColor white "Successfully joined $dom domain!"}
  Start-sleep 3
  Pause
