@@ -1,0 +1,1 @@
+powershell C:\temp\Send-DiskReport.ps1 -nonInteractive

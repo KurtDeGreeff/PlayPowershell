@@ -1,0 +1,403 @@
+﻿# Determine host version
+Get-Host
+$PSVersionTable
+
+# Windows Server 8 modules
+Restart-Computer demo-srv02 -Wait -Force
+
+# Snippets: Ctrl + J in the ISE
+
+# Show-Command, discoverability
+Show-Command
+
+# ISE Commands Add-on og Show-Command
+# http://www.jonathanmedd.net/2011/09/powershell-v3-ise-commands-add-on.html
+
+Show-Command Get-ADUser
+
+$psISE.Options.ShowCommandsOnStartup = $false
+
+# Core cmdlets is now modules, with the exception of Microsoft.PowerShell.Core due to performance reasons
+Get-Module
+Get-PSSnapin
+
+# http://dmitrysotnikov.wordpress.com/2011/09/14/first-glimpse-at-powershell-v3/
+Get-Command -Module Microsoft.PowerShell.* | sort module, noun | format-table ModuleName, Name -AutoSize
+
+<# New cmdlets and parameters in core modules/snapins
+
+# http://www.powershellmagazine.com/2011/09/15/how-to-find-out-whats-new-in-powershell-vnext/
+
+# run in v2, export all core cmdlets, name and parameters
+Get-Command -Module Microsoft.PowerShell.*, Microsoft.WSMan.* | Select-Object -Property Name,@{Name=’Parameters’;Expression={(Get-Command $_).Parameters.Keys}} | Export-Clixml "C:\Demo\v2.xml"
+
+# run in v3, export all core cmdlets, name and parameters
+Get-Command -Module Microsoft.PowerShell.*, Microsoft.WSMan.* | Select-Object -Property Name,@{Name=’Parameters’;Expression={(Get-Command $_).Parameters.Keys}} | Export-Clixml "C:\Demo\v3.xml"
+
+# run either in v2 or v3 console
+$v2 = Import-CliXml "C:\Demo\v2.xml" | Sort-Object -Property Name
+$v3 = Import-CliXml "C:\Demo\v3.xml" | Sort-Object -Property Name
+
+#>
+
+Compare-Object -ReferenceObject $v2 -DifferenceObject $v3 -Property Name -IncludeEqual -PassThru | ForEach-Object {
+
+    $Command = $_
+
+    if($_.SideIndicator -eq ‘==’)
+    {
+        $Command = $_
+
+        $cv2 = $v2 | Where-Object {$_.Name -eq $Command.Name} | Select-Object -ExpandProperty Parameters
+        $cv3 = $v3 | Where-Object {$_.Name -eq $Command.Name} | Select-Object -ExpandProperty Parameters
+
+        $compare = Compare-Object $cv2 $cv3
+
+        if($compare)
+        {
+            try
+            {
+                $NewParameters = $compare | Where-Object {$_.SideIndicator -eq ‘=>’} | ForEach-Object {$_.InputObject + ‘ (+)’}
+                $RemovedParameters = $compare | Where-Object {$_.SideIndicator -eq ‘<=’} | ForEach-Object {$_.InputObject + ‘ (-)’}
+
+                “$($command.Name) (!)”
+                $NewParameters + $RemovedParameters | Sort-Object | ForEach-Object { “`t$_”}
+                “`n”
+            }
+            catch{}
+        }
+    }
+    elseif($_.SideIndicator -eq ‘=>’)
+    {
+        “$($Command.name) (+)`n”
+    }
+    else
+    {
+        “$($Command.name) (-)`n”
+    }
+}
+
+
+# Control Panel cmdlets
+Get-ControlPanelItem
+
+Show-ControlPanelItem mouse
+New-Alias -Name scpi -Value Show-ControlPanelItem
+scpi mouse
+scpi net*
+ncpa.cpl
+
+# Improvements to the registry provider
+# http://nivot.org/nivot2/post/2011/10/09/PowerShell-30–Now-with-a-legible-registry-provider!.aspx
+Get-Item hklm:\software\microsoft\windows\currentversion
+# (Also run in V2 and notice the difference)
+
+# Out-Gridview -PassThru
+# http://powertoe.wordpress.com/2011/09/19/out-gridview-now-has-a-passthru-parameter
+
+Get-Service | Where-Object {$_.name -eq 'spooler'}
+Get-Service | Out-GridView 
+Get-Service | Out-GridView -PassThru
+
+
+<# 
+
+Invoke-RestMethod makes it easier to work with RSS
+http://www.dougfinke.com/blog/index.php/2011/09/22/reading-rss-feedseven-easier-in-powershell-v3
+
+#>
+
+
+$url = "http://blogs.msdn.com/b/powershell/rss.aspx"
+
+# Retrive an RSS-feed in V2
+$wc = New-Object net.webclient
+[xml]$xml = $wc.DownloadString($url)
+$xml.rss.channel.item | Select Title, Link
+
+# Retrive an RSS-feed in V3
+Invoke-RestMethod $url | Select Title, Link
+
+
+# Updateable help
+# http://tfl09.blogspot.com/2011/09/powershell-v3-and-updateable-help.html
+Update-Help
+Show-Command Update-Help
+
+
+
+# Module autoloading
+Get-Command
+
+# Can be customized. Documented in the CTP Release notes, but isn`t working in the CTP`s:
+$PSModuleAutoloadingPreference = "None"
+
+# In CTP2 it`s an environment variable
+$env:PSDisableModuleAutoLoading='none'
+
+<#
+3 valid values
+All: Module auto-loading works for all commands. 
+ModuleQualified: Modules are imported automatically only when a user uses the module-qualified name of a command. In example: "MyModule\MyCommand".
+None: Module auto-loading is turned off.
+#>
+
+# CTP2 and beyond:
+Get-Command -ListImported
+
+
+# Creating custom objects is getting easier
+# http://www.jonathanmedd.net/2011/09/powershell-v3-creating-objects-with-pscustomobject-its-fast.html
+
+# V2 example
+$CustomObject1 = New-Object psobject -Property @{a=1}
+
+$CustomObject1 | Get-Member
+
+$CustomObject1 | Format-List
+
+# V3 example
+$CustomObject2 = [pscustomobject]@{a=1}
+
+$CustomObject2 | Get-Member
+
+$CustomObject2 | Format-List
+
+# Performance comparison of different ways to create a custom object
+
+# Select-Object = 7.74s
+# Add-Member = 28.87s
+# Property = 7.29
+# [pscustomobject] = 0.94s
+
+
+# Ordered hash-tables
+# http://www.jonathanmedd.net/2011/09/powershell-v3-bringing-ordered-to-your-hashtables.html
+
+$HashTableOld = @{a=1; b=2; c=3; d=4}
+
+$HashTableOld
+
+
+$HashTableNew = [ordered]@{a=1; b=2; c=3; d=4}
+
+$HashTableNew
+
+
+# Default parameter values
+# http://powertoe.wordpress.com/2011/09/15/powershell-default-parameters-in-v-3-0/
+dir variable:
+
+$PSDefaultParameterValues
+
+$PSDefaultParameterValues | Get-Member
+
+# Example 1: Get-Service
+
+Get-Service
+
+$PSDefaultParameterValues.('Get-Service:Name') = "spooler"
+
+Get-Service
+
+Get-Service -Name *
+
+# Example 2: Send-MailMessage – From, Subject, Body, SMTPServer
+
+
+# Simplified language syntax (Where-Object and Foreach-Object)
+# http://rkeithhill.wordpress.com/2011/10/19/windows-powershell-version-3-simplified-syntax
+
+# Version 1.0 and 2.0
+Get-Process | Where-Object {$_.PM -gt 100MB}
+Get-Process | ForEach-Object {$_.Name}
+Get-Process | Where-Object {$_.Name -like 'ie*'} | ForEach-Object {Stop-Process $_ -Whatif}
+
+# Version 3.0
+Get-Process | Where-Object PM -gt 100MB
+Get-Process | ForEach-Object Name
+Get-Process | Where Name -like 'ie*' | ForEach Stop-Process -Whatif
+
+
+# Get-ChildItem improvements
+#http://learn-powershell.net/2011/09/19/more-powershell-v3-goodness
+
+#-Directory
+
+#-File
+
+#-Attribute (Can use other attributes like Archive)
+
+#-System
+
+#-Hidden
+
+#-ReadOnly
+
+Get-ChildItem -ad
+
+dir -ad
+
+dir -Directory
+
+dir -Hidden
+
+
+# Export-CSV got an –Append parameter!
+
+Get-Process | Export-Csv report.csv -NoTypeInformation
+Get-Process | Export-Csv report.csv -NoTypeInformation -append
+
+<# Workflows, maybe the most major new feature in V3
+
+Definition from "Getting Started with Windows PowerShell
+ Workflow":
+A workflow is a sequence of automated steps or activities 
+that execute tasks on or retrieve data from one or more 
+managed nodes (computers or devices). These activities can 
+include individual commands or scripts. Windows PowerShell 
+Workflow enables, IT pros and developers alike, to author 
+sequences of multi-computer management activities — that 
+are either long-running, repeatable, frequent, parallelizable
+, interruptible, stoppable, or restartable — as workflows. 
+By design, workflows can be resumed from an intentional or 
+accidental suspension or interruption, such as a network 
+outage, a reboot or power loss.
+#>
+
+workflow Invoke-HelloWorld {“Hello World from workflow"}
+Invoke-HelloWorld
+
+workflow Get-InventoryWF
+{
+   
+    $classes = "Win32_OperatingSystem", "Win32_Processor", "Win32_DiskDrive", "Win32_DiskPartition", "Win32_Process", "Win32_Service"
+    foreach -parallel ($c in $classes)
+    {
+        Get-CimInstance -class $c 
+    }
+ }
+
+Get-InventoryWF
+
+# A practical example, installing prereqs for a Lync server
+
+workflow Install-LyncPrerequisite {
+    param ([string[]]$computername)
+
+    foreach -parallel($computer in $computername) {
+        "Installing Lync 20 Prerequisites on ${computer}"
+        # Import-Module ServerManager
+        # Add-WindowsFeature xyz
+        # The tasks running here may be long running
+        # and can survive reboots
+        
+        Sequence {
+        Get-WmiObject -Class win32_bios
+        "Sequence 1"
+        sleep -Seconds 2
+        "Sequence 2"
+        }
+
+ Restart-Computer -ComputerName $computer -Wait -Force
+
+        Parallel {
+        "Parallel 1"
+        sleep -Seconds 2
+        "Parallel 2"
+        }
+
+    InlineScript {
+        $date1 = Get-Date
+        $date2 = $date1-(Get-Date)
+    }
+
+
+
+    }
+}
+
+Install-LyncPrerequisite -computername demo-srv02
+
+# Auto reconnect to a server you just rebooted
+# http://blogs.microsoft.co.il/blogs/scriptfanatic/archive/2012/01/08/Auto-reconnect-to-a-server-you-just-rebooted-with-PowerShell-3.0.aspx
+
+Restart-Computer –ComputerName demo-srv02 -Wait -For Wmi –Force             
+mstsc /v demo-srv02 /admin
+
+<#Note that there are limitations in workflows in terms of PowerShell,
+in example positional parameters is not supported
+see the PowerShell Language Restrictions in PowerShell Workflow
+in the Getting started guide for more information.
+#>
+
+<#
+PowerShell V3 CTP2 Provides Better Argument Passing to EXEs
+http://rkeithhill.wordpress.com/2012/01/02/powershell-v3-ctp2-provides-better-argument-passing-to-exes
+
+The character sequence -–% makes the parser threat the rest
+of the line as-is
+#>
+
+sqlcmd -S .\SQLEXPRESS -v lname="Gates" -Q "SELECT FirstName,LastName FROM AdventureWorks.Person.Contact WHERE LastName = '$(lname)'"
+
+sqlcmd --% -S .\SQLEXPRESS -v lname="Gates" -Q "SELECT FirstName,LastName FROM AdventureWorks.Person.Contact WHERE LastName = '$(lname)'"
+
+
+<# PowerShell 3 – Finally on the DLR!
+http://huddledmasses.org/powershell-3-finally-on-the-dlr
+
+"PowerShell is now based on the Dynamic Language Runtime, 
+a runtime environment that adds a set of services for 
+dynamic languages to the Common Language Runtime (CLR), 
+which is the core of the .NET Framework."
+
+#>
+
+
+
+
+
+[ordered]@{a=1;b=2;c=3}
+# Can use wildcards too for defaultparametervalues
+$PSDefaultParameterValues = @{
+"Send-MailMessage:From" = "kurt.de.greeff@outlook.com";
+"Send-MailMessage:SmtpServer" = "smtp.live.com";
+"Send-MailMessage:UseSSL" = $true;
+"Send-MailMessage:Port" = 587;
+"Send-MailMessage:Credential" = (Get-Credential kurt.de.greeff@outlook.com)
+}
+Send-MailMessage -to gyzmos@gmail.com -subject "Test" -Body "Sent mail message"
+
+#Turn off all default parameter values
+$PSDefaultParameterValues["Disabled"] = $true
+
+#PS Session Configuration
+Get-PSSessionConfiguration
+
+#By default you connect to microsoft.powershell
+$s = New-PSSession -ComputerName Localhost # acces denied because no permissions
+$PSSessionConfigurationName
+Register-PSSessionConfiguration -Name JuniorEndpoint -ShowSecurityDescriptorUI -Force
+$s = New-PSSession -ComputerName localhost -ConfigurationName JuniorEndpoint -Credential $junioradmin
+Invoke-Command $s {get-command}
+
+#Change permissions so junioradmin can now run commands with different set of credentials
+Set-PSSessionConfiguration -Name JuniorEndpoint -RunAsCredential administrator -Force
+
+Invoke-Command $s {Get-service} # now works
+Invoke-Command $s { $PsSenderInfo } # show connected user and the runas user
+
+Unregister-PSSessionConfiguration -Name JuniorEndpoint -Force
+
+#Constrain more with session configuration files
+New-PSSessionConfigurationFile -Path c:\endpoint.pssc -ModulesToImport Microsoft.powershell.management -VisibleCmdlets Get-service -SessionType RestrictedRemoteServer #latest parameter specifies that the user gets a interactive remote session
+
+ise c:\endpoint.pssc
+
+Register-PSSessionConfiguration -Name JuniorEndpoint -path c:\endpoint.pscc -RunAsCredential administrator -ShowSecurityDescriptorUI -Force
+$s = New-PSSession -ComputerName localhost -ConfigurationName JuniorEndpoint -Credential $junioradmincreds
+Invoke-Command $s {get-service}
+Invoke-Command $s {Get-Command}
+
+

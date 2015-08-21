@@ -1,0 +1,2 @@
+﻿Register-ScheduledJob –Name AtStartup –FilePath C:\Scripts\Startup.ps1 -Credential (Get-Credential DOMAIN\Username) 
+-MaxResultCount 30 -ScheduledJobOption (New-ScheduledJobOption –DoNotAllowDemandStart) -Trigger (New-JobTrigger –AtStartup)

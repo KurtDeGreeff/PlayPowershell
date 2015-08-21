@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- *******************************************************************
+This file demos how to extend a built-in type.  Copy to your $PSHOME folder, then load
+with 'update-typedata MyCustom.Types.ps1xml'.  Afterwards, create an array and examine
+its properties and methods with 'get-member -in $arrayname'.  
+******************************************************************** -->
+
+
+<Types>
+    <Type>
+        <Name>System.Array</Name>
+        <Members>
+
+            <AliasProperty>
+                <Name>Size</Name>
+                <ReferencedMemberName>Length</ReferencedMemberName>
+            </AliasProperty>
+
+            <ScriptProperty>
+                <Name>HexLength</Name>
+                <GetScriptBlock>[string]::format("0x{0:X}",$this.Length)</GetScriptBlock>
+            </ScriptProperty>
+
+            <NoteProperty>
+                <Name>IsArray</Name>
+                <Value>$True</Value>
+            </NoteProperty>
+
+            <ScriptMethod>
+                <Name>ToCSV</Name>
+                <Script>
+                    [System.String]::Join(",",$This)
+                </Script>
+            </ScriptMethod>
+
+
+        </Members>
+    </Type>
+</Types>
+
+

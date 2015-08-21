@@ -1,0 +1,107 @@
+﻿Get-Module *NET* -ListAvailable
+Get-Command –Module *NET*
+Get-Command –Module NetSecurity
+############################################## FIREWALL #####################################################
+Get-NetFirewallRule | Format-Table
+#Show enabled firewall rules
+Get-NetFirewallRule | Where { $_.Enabled –eq ‘TRUE’ }
+Get-NetFirewallProfile | Format-Table
+#Show firewall rules in private profile only
+Get-NetFirewallProfile –name ‘Private’ | Get-NetfirewallRule
+#show all rules within the DisplayGroup where Hyper-V was anywhere in the name. 
+Get-NetFirewallRule –displaygroup *Hyper-V*
+Get-NetFirewallRule –displaygroup *Hyper-V* | Set-NetFirewallRule –enabled True
+#enable Port 1433 as an inbound rule, and name it SQL Inbound.
+New-NetFirewallRule –Rule ‘Sql Inbound’ –Displayname ‘Sql Inbound’ –protocol TCP –localport 1433 –enabled True
+Get-NetFirewallRule ‘SQL Inbound’ | Disable-NetFirewallRule
+Get-NetFirewallRule ‘SQL Inbound’ | Remove-NetFirewallRule
+Get-NetFirewallPortFilter
+Get-NetFirewallPortFilter –Protocol TCP | Where { $_.localport –eq ‘1433’ }
+#Show me any firewall rules that exist that enable Port 1433
+Get-NetFirewallPortFilter –Protocol TCP | Where { $_.localport –eq ‘1433’ } | Get-NetFirewallRule
+########################################## ACTIVE NIC #########################################################
+Get-NetAdapter
+Get-NetAdapter | Where { $_.Status –eq ‘Up’ }
+Get-NetAdapter –Physical
+#disable all those adapters that are not live
+Get-NetAdapter –Physical | Where { $Status –ne ‘Up’ } | Disable-NetAdapter
+#Find the live physical adapters and set description
+Get-NetAdapter –Physical | Where { $Status –eq ‘Up’ } | Set-NetAdapter –interfacedescription ‘Production Vlan’
+#Disable power management (sleep) on NIC
+Get-NetAdapter | Disable-NetAdapterPowerManagement
+############################################# IP ADDRESS #######################################################
+Get-NetIPAddress | Format-Table
+Get-NetIPAddress | Select-Object IPAddress, InterfaceAlias
+Get-NetAdapter –physical | Where { $_.Status –eq ‘Up’ } | New-NetIPAddress –Ipaddress 192.168.1.5 –PrefixLength 24 –DefaultGateway 192.168.1.1 –whatif
+######################################### DNS Client #############################################################
+Get-DnsClientServerAddress –InterfaceAlias “Local Area Connection”
+Get-NetAdapter –physical | where { $_.Status –eq ‘Up’ } | Get-DnsClientServerAddress
+Set-DnsClientServerAddress –InterfaceAlias "Local Area Connection" –ServerAddresses ("192.168.1.5") –ConnectionSpecificSuffix "Fabrikam.com"
+#Set DNS server on multiple adapters
+Get-NetAdapter –physical | Set-DnsClientServerAddress –ServerAddresses ("192.168.1.5")
+Resolve-DNSName 192.168.1.1
+Resolve-DNSName –type MX PowerShell.org
+######################################### DHCP SERVER ##########################################################
+#Get all DHCP scopes
+Get-DHCPServerv4Scope
+#Add new scope
+Add-DhcpServerv4Scope -Name ‘Sample’ -StartRange 192.168.1.100 -EndRange 192.168.1.200 –Description ‘Sample for 192.168.1.0’ -SubnetMask 255.255.255.0
+Get-DHCPServerv4OptionDefinition
+Get-DHCPServerv4OptionDefinition | where { $_.Name –like ‘*DNS*’ }
+Get-DHCPServerv4OptionDefinition | where { $_.Name –like ‘*Router*’ }
+#add options to scope through the Set-DHCPServerv4OptionValue cmdlet. But instead of using the name, we need to use the OptionID provided for the name
+$id=(Get-DHCPServerv4Scope | Where { $_.Name –eq ‘Sample’ }).ScopeID
+#Set router/default-gateway for the scope
+Set-DHCPServerv4ScopeOptionValue –Scope $Id –optionid 3 –value 192.168.1.1
+#Set DNS servers for the scope
+Set-DHCPServerv4ScopeOptionValue –Scope $Id –optionid 6 –value 192.168.1.5,192.168.1.25
+#Export current ip leases
+Get-DHCPServerv4Scope | Get-DHCPServerv4Lease | Export-CSV CurrentIP.csv
+########################################### DNS SERVER  #########################################################
+Get-DnsServer
+Get-DNSServer | Export-CLIXML DnsConfig.xml
+Import-CLIXML Dnsconfig.xml  #to view on client without DNS server
+Get-DNSServerZone
+#show me all records of type “A” for a particular zone
+Get-DNSServerZone ‘Contoso.local’ | Get-DNSServerResourceRecord –Rrtype A
+#create a brand new zone called Contoso.local, which replicates to all forests:
+Add-DNSServerPrimaryZone –name ‘Contoso.local’ –replicationscope Forest
+#create an “A” record called “ContosWeb1” in the Contoso.local domain with an IP address of 192.168.1.35. 
+Add-DnsServerResourceRecord -ZoneName 'contoso.local' -IPv4Address '192.168.1.35' -Name ‘ContosoWeb1' -A
+#Let’s say the value of the record for our web server needed to change to 10.0.0.35 because we moved the server to our DMZ zone.
+$OldRecord=Get-DNSServerResourceRecord –name ‘ContosoWeb1’ –Zonename ‘Contoso.local’
+$NewRecord=$OldRecord
+$NewRecord.RecordData.IPV4Address=”10.0.0.35”
+Set-DNSServerResourceRecord –oldinputobject $OldRecord –newinputobject $NewRecord –zonename ‘Contoso.local’
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

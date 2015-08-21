@@ -1,0 +1,30 @@
+###################################
+# $DN = "LDAP://10.5.21.143/dc=pol,dc=be"
+# $auth = [System.DirectoryServices.AuthenticationTypes]::Anonymous
+# $de = New-Object System.DirectoryServices.DirectoryEntry($DN,$null,$null,$auth)
+# $ds = New-Object system.DirectoryServices.DirectorySearcher($de,"(objectclass=*)")
+# $ds.FindAll() | ft
+###################################
+
+function Get-LDAPUser([string]$UserName, [string]$Start)
+{
+  # Use current logon domain:
+  $domain = [ADSI]""
+  # OR: log on to another domain:
+  #   $domain = New-Object DirectoryServices.DirectoryEntry(
+  #   "LDAP://10.10.10.1","domain\user", "secret")
+  If ($start -ne "")
+  {
+    $startelement = $domain.psbase.Children.Find($start)
+  }
+  else
+  {
+    $startelement = $domain
+  }
+  $searcher = New-Object DirectoryServices.DirectorySearcher($startelement)
+  $searcher.filter = "(&(objectClass=user)(sAMAccountName=$UserName))"
+  $Searcher.CacheResults = $true
+  $Searcher.SearchScope = "Subtree"
+  $Searcher.PageSize = 1000
+  $searcher.findall()
+}
